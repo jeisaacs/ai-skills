@@ -1,6 +1,6 @@
 # ai-skills
 
-![Skills](https://img.shields.io/badge/skills-6-blue)
+![Skills](https://img.shields.io/badge/skills-8-blue)
 ![Platform](https://img.shields.io/badge/platform-Claude%20Code%20%7C%20ChatGPT-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Contributions](https://img.shields.io/badge/contributions-welcome-orange)
@@ -17,6 +17,8 @@ A collection of AI coding assistant skills for Claude Code and ChatGPT custom in
 | [code-review-response](./code-review-response) | Processes open PR review comments (human or bot), triages suggestions, applies one-commit-per-comment fixes, runs tests, and resolves threads. |
 | [commit-text](./commit-text) | Generates a paste-ready conventional commit message from your staged/unstaged changes and copies it to clipboard. No AI attribution included. |
 | [linear-ticket-update](./linear-ticket-update) | Syncs a Linear ticket with the actual implementation — updates title, description, technical details, and acceptance criteria from the branch diff. |
+| [linear-project-slicer](./linear-project-slicer) | Creates vertically-sliced Linear sub-issues from a briefing document, producing fully-detailed issues an AI can pick up and implement. |
+| [pr-content](./pr-content) | Generates a paste-ready PR title and body from your branch diff with GitHub-flavored markdown and mermaid diagrams. Copies to clipboard automatically. |
 | [documentation-enforcer](./documentation-enforcer) | Reviews source files for documentation quality, generates unified diffs with suggested docstrings/comments, and produces a summary report without modifying files. |
 | [uncodixfy](./uncodixfy) | Prevents generic AI/Codex UI patterns in frontend code. Enforces clean, human-designed aesthetics inspired by Linear, Raycast, Stripe, and GitHub. |
 
