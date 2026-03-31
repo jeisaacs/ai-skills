@@ -32,6 +32,7 @@ Required inputs from the user (ask if not provided):
 1. **Linear briefing document URL** (e.g. `https://linear.app/handshaik/document/...`)
 2. **Frontend parent issue** identifier (e.g. `HAN-2593`) — all FE sub-issues go under this
 3. **Backend parent issue** identifier (e.g. `HAN-2594`) — all BE sub-issues go under this
+4. **Assignees** (optional) — who owns FE work and who owns BE work? If not provided, leave unassigned.
 
 ---
 
@@ -50,11 +51,25 @@ do after this ships that they couldn't before?]
 ## Technical Aspects
 
 - [Bullet list of specific technical tasks]
-- [File paths to modify, with what to change]
-- [Code snippets for new types, function signatures, query params]
 - [Pattern references: "follow the same pattern as X in file Y"]
 - [Access control / auth considerations]
 - [Testing requirements]
+
+For **backend** issues, also include:
+- Full method/function signatures with Python type hints
+- REST endpoint spec: HTTP method, path, request body shape, response shape, error codes
+- Validation rules in execution order
+- Database query details (new columns, indexes, migrations)
+
+For **frontend** issues, also include:
+- Component names and hook signatures with TypeScript return types
+- `data-pendo` attribute values for all new interactive elements
+- URL state params (nuqs) if applicable
+
+## Critical Files
+
+- `path/to/file.ext` — [What changes here and why]
+- `path/to/other/file.ext` — [What changes here and why]
 
 ## Acceptance Criteria
 
@@ -102,14 +117,22 @@ If the user hasn't provided the three required inputs, ask for them before proce
 Fetch the following in parallel:
 
 ```
-mcp__claude_ai_Linear__get_document(id: <slugId or UUID from URL>)
-mcp__claude_ai_Linear__get_issue(id: <FE parent>, includeRelations: true)
-mcp__claude_ai_Linear__get_issue(id: <BE parent>, includeRelations: true)
-mcp__claude_ai_Linear__list_issue_statuses(team: "Handshaik")
+mcp__plugin_linear_linear__get_document(id: <slugId or UUID from URL>)
+mcp__plugin_linear_linear__get_issue(id: <FE parent>, includeRelations: true)
+mcp__plugin_linear_linear__get_issue(id: <BE parent>, includeRelations: true)
+mcp__plugin_linear_linear__list_issue_statuses(team: "Handshaik")
+mcp__plugin_linear_linear__list_issue_labels(team: "Handshaik")
+mcp__plugin_linear_linear__list_users()
 ```
 
-Also fetch the team's issue statuses to get the exact ID for the "Backlog" state —
-needed in Step 6. Look for the status with `"type": "backlog"` and `"name": "Backlog"`.
+From the statuses response, find the exact ID for the "Backlog" state (the one with
+`"type": "backlog"` and `"name": "Backlog"`) — needed when creating issues.
+
+From the labels response, identify existing labels for: track (`Backend`, `Frontend`),
+type (`Feature`, `Bug`, `Improvement`), and feature area (e.g. `Nurture`). Note their
+IDs. If any needed labels don't exist, create them later with `create_issue_label`.
+
+If assignees were provided, resolve their names to user IDs from the users response.
 
 Extract from the document:
 - Feature description and goals
@@ -150,7 +173,7 @@ the feature being built. Always investigate:
 If the document contains a Figma URL:
 
 ```
-mcp__claude_ai_Figma__get_design_context(
+mcp__plugin_figma_figma__get_design_context(
   fileKey: <extracted from URL>,
   nodeId: <extracted from URL, convert - to :>,
   clientFrameworks: "react,next.js",
@@ -192,18 +215,26 @@ Design the minimum set of issues that:
 2. Can be worked on independently (unblock in order, not all at once)
 3. Are small enough to be done in one PR
 
-**Typical slice pattern for a new analytics/data feature:**
+**Typical slice pattern for a new feature:**
 
 | # | Type | Scope | Typical content | Estimate |
 |---|------|-------|----------------|----------|
-| 1 | BE | New API endpoint | Schema + service method + route + tests | 3 pts |
-| 2 | FE | Route/tab wiring | Feature flag + routing + layout scaffold | 1 pt |
-| 3 | FE | Table/UI + API hook | API client method + TS types + hook + component | 3 pts |
-| 4 | FE | Filters/controls | URL state (nuqs) + filter component | 2 pts |
-| 5 | FE | Interactions | Click handlers + navigation between views | 2 pts |
+| 1 | BE | DB schema & migrations | Models + Alembic migration + seeding | 3 pts |
+| 2 | BE | Default data seeding | Seed script + org-scoped defaults | 3 pts |
+| 3 | BE | CRUD API | Service layer + routes + schemas + tests | 5 pts |
+| 4 | BE | Business logic | Assignment, lifecycle, validation rules | 3 pts |
+| 5 | BE | Advanced lifecycle | Close/reopen flows, audit trail | 2 pts |
+| 6 | FE | Types, API client & hooks | Generated types + API client + query hooks + feature flag | 3 pts |
+| 7 | FE | Settings / management UI | Full CRUD page with drag-and-drop, pickers | 5 pts |
+| 8 | FE | Primary view migration | Main feature view (e.g. kanban board) | 5 pts |
+| 9 | FE | Secondary components | Status selectors, progress indicators | 3 pts |
+| 10 | FE | Dialogs & flows | Close dialog, reopen flow | 5 pts |
+| 11 | FE | Peripheral updates | Export config, minor integrations | 1 pt |
 
 Adjust based on complexity. Never split a single logical unit across issues
-just to create more tickets. 3–6 issues is usually right.
+just to create more tickets. 3–6 issues per track is typical for a small feature;
+larger features commonly reach 8–12 per track. Don't artificially constrain the
+count — let the scope dictate it.
 
 **Effort scale:**
 - `1` = XS (< half a day — trivial wiring, config, tiny component)
@@ -215,41 +246,122 @@ just to create more tickets. 3–6 issues is usually right.
 - `2` = High — on the critical path; blocks other issues
 - `3` = Medium — dependent follow-on; can be done after blockers merge
 
+#### Milestones
+
+Group sub-issues into **~3 milestones per track** representing sequential phases.
+Milestones help the team see progress at a glance and plan sprints.
+
+Example milestone structure:
+- **BE Track:** Data Foundation → Core API → Advanced Lifecycle
+- **FE Track:** Foundation & Data Layer → Core UI Migration → Completion Flows
+
+Each sub-issue must be assigned to exactly one milestone.
+
+#### Dependency patterns
+
+Design dependencies using one of two patterns:
+
+**Sequential chain** (typical for BE where each step builds on the last):
+```mermaid
+graph LR
+    A[Schema & migrations] --> B[Seeding] --> C[CRUD API] --> D[Assignment] --> E[Lifecycle]
+```
+
+**Fan-out** (typical for FE — foundation, then parallel streams, then convergence):
+```mermaid
+graph LR
+    A[Types & hooks] --> B[Settings UI]
+    A --> C[Kanban board]
+    A --> D[Status selectors]
+    A --> E[Export config]
+    B --> F[Close dialog]
+    C --> F
+    F --> G[Reopen flow]
+```
+
 ---
 
-### Step 6 — Create all sub-issues in parallel
+### Step 6 — Set up project and milestones
 
-Use `mcp__claude_ai_Linear__save_issue` for each issue simultaneously.
+Check if a Linear Project already exists for this feature (the parent issues may
+already belong to one). If not, create one:
+
+```
+mcp__plugin_linear_linear__save_project(
+  name: "<Feature Name>",
+  teamIds: ["<Handshaik team ID>"],
+  leadId: "<user ID>",
+  memberIds: ["<FE assignee ID>", "<BE assignee ID>"],
+  startDate: "<today or sprint start>",
+  targetDate: "<estimated completion>"
+)
+```
+
+Then create milestones within the project (~3 per track, as designed in Step 5):
+
+```
+mcp__plugin_linear_linear__save_milestone(
+  name: "BE: Data Foundation",
+  projectId: "<project ID>",
+  sortOrder: 0
+)
+```
+
+Record all milestone IDs for use when creating issues.
+
+---
+
+### Step 7 — Create all sub-issues in parallel
+
+Use `mcp__plugin_linear_linear__save_issue` for each issue simultaneously.
 
 **Required fields for every issue:**
-- `title`: `[Feature Name] FE:` or `[Feature Name] BE:` prefix
+- `title`: plain descriptive title (e.g. "DB Schema & Migrations", "Kanban Board Migration"). No `FE:`/`BE:` prefix — the parent relationship and labels convey the track.
 - `team`: `"Handshaik"`
-- `project`: match the parent issue's project name
+- `project`: the project ID from Step 6
 - `parentId`: FE issues → FE parent ID; BE issues → BE parent ID
+- `milestoneId`: the milestone ID from Step 6 that this issue belongs to
 - `priority`: `2` (High) or `3` (Medium) — see Step 5
 - `estimate`: `1`, `2`, `3`, or `5` — see Step 5
-- `state`: use the exact Backlog state ID retrieved in Step 1 (the one with `"type": "backlog"` and `"name": "Backlog"`)
+- `state`: use the exact Backlog state ID retrieved in Step 1
+- `labelIds`: at minimum include the track label (`Backend` or `Frontend`), type label (`Feature`), and feature-area label (e.g. `Nurture`)
+- `assigneeId`: if assignees were provided, set the appropriate one (FE or BE owner)
 - `description`: full content following the Issue Template above
 
 ---
 
-### Step 7 — Wire dependencies in parallel
+### Step 8 — Wire dependencies in parallel
 
 After all issues are created, set `blockedBy` relations.
-Run all updates simultaneously:
+Run all updates simultaneously. Use both dependency patterns from Step 5:
 
+**Sequential chain** (BE):
 ```
-mcp__claude_ai_Linear__save_issue(id: <FE table issue>, blockedBy: ["<BE endpoint issue>"])
-mcp__claude_ai_Linear__save_issue(id: <FE filter issue>, blockedBy: ["<FE table issue>"])
-mcp__claude_ai_Linear__save_issue(id: <FE interaction issue>, blockedBy: ["<FE table issue>"])
+mcp__plugin_linear_linear__save_issue(id: <seeding>, blockedBy: ["<schema>"])
+mcp__plugin_linear_linear__save_issue(id: <CRUD>, blockedBy: ["<seeding>"])
+mcp__plugin_linear_linear__save_issue(id: <assignment>, blockedBy: ["<CRUD>"])
+mcp__plugin_linear_linear__save_issue(id: <lifecycle>, blockedBy: ["<assignment>"])
 ```
+
+**Fan-out** (FE):
+```
+mcp__plugin_linear_linear__save_issue(id: <settings UI>, blockedBy: ["<types & hooks>"])
+mcp__plugin_linear_linear__save_issue(id: <kanban board>, blockedBy: ["<types & hooks>"])
+mcp__plugin_linear_linear__save_issue(id: <close dialog>, blockedBy: ["<settings UI>", "<kanban board>"])
+mcp__plugin_linear_linear__save_issue(id: <reopen flow>, blockedBy: ["<close dialog>"])
+```
+
+Cross-track dependencies (FE blocked by BE) are also valid when the FE issue
+needs an API that doesn't exist yet.
 
 ---
 
-### Step 8 — Update both parent issues
+### Step 9 — Update both parent issues
 
 Update the FE and BE parent issues with a clear overview of their sub-issues.
 Run both updates in parallel.
+
+**Parent issue title format:** `"Frontend: Feature Name"` / `"Backend: Feature Name"`
 
 **Parent issue description format:**
 
@@ -265,9 +377,9 @@ Run both updates in parallel.
 
 ## Sub-issues
 
-| Issue | Title | Effort | Priority | Blocked by |
-|-------|-------|--------|----------|-----------|
-| [HAN-XXXX](url) | Short title | X pts | High/Medium | — or HAN-XXXX |
+| Issue | Title | Milestone | Effort | Priority | Blocked by |
+|-------|-------|-----------|--------|----------|-----------|
+| [HAN-XXXX](url) | Short title | Phase name | X pts | High/Medium | — or HAN-XXXX |
 
 **Total estimate: X points**
 
@@ -275,10 +387,11 @@ Run both updates in parallel.
 
 ## Dependency order
 
-\`\`\`
-HAN-XXXX (short label)  ──► HAN-XXXX (short label)
-                                  ├──► HAN-XXXX (short label)
-                                  └──► HAN-XXXX (short label)
+\`\`\`mermaid
+graph LR
+    HAN-XXXX[Short label] --> HAN-XXXX[Short label]
+    HAN-XXXX --> HAN-XXXX[Short label]
+    HAN-XXXX --> HAN-XXXX[Short label]
 \`\`\`
 
 ---
@@ -291,9 +404,11 @@ what it is gated behind, and any key technical notes.]
 
 ---
 
-### Step 9 — Update the briefing document
+### Step 10 — Update the briefing document
 
-Update the Linear document appending the following sections after the original content:
+Update the Linear document by appending the following sections after the original
+content. If the document already has Technical Design or Architecture sections,
+update them rather than duplicating.
 
 ```markdown
 ---
@@ -310,24 +425,42 @@ Update the Linear document appending the following sections after the original c
 
 ### Backend (under [HAN-XXXX](url))
 
-- [HAN-XXXX](url) — BE: [title] *(no blockers)*
+| Issue | Title | Milestone | Estimate | Blocked by |
+|-------|-------|-----------|----------|-----------|
+| [HAN-XXXX](url) | Title | Phase name | X pts | — or HAN-XXXX |
 
 ### Frontend (under [HAN-XXXX](url))
 
-- [HAN-XXXX](url) — FE: [title] *(no blockers — can start immediately)*
-- [HAN-XXXX](url) — FE: [title] *(blocked by HAN-XXXX)*
-- [HAN-XXXX](url) — FE: [title] *(blocked by HAN-XXXX)*
+| Issue | Title | Milestone | Estimate | Blocked by |
+|-------|-------|-----------|----------|-----------|
+| [HAN-XXXX](url) | Title | Phase name | X pts | — or HAN-XXXX |
 
 ### Dependency order
 
+\`\`\`mermaid
+graph LR
+    HAN-XXXX[BE: Schema] --> HAN-XXXX[BE: Seeding] --> HAN-XXXX[BE: CRUD]
+    HAN-XXXX[FE: Types & hooks] --> HAN-XXXX[FE: Settings UI]
+    HAN-XXXX[FE: Types & hooks] --> HAN-XXXX[FE: Kanban board]
 \`\`\`
-HAN-XXXX (label)  →  deployable independently
-HAN-XXXX (BE)     →  HAN-XXXX (FE table)  →  HAN-XXXX (filter)
-                                            →  HAN-XXXX (interactions)
-\`\`\`
+
+---
+
+## Deployment Strategy
+
+[Recommended deployment order — typically: BE foundation first, then FE foundation,
+then parallel UI work, then close/reopen flows, then feature flag rollout.]
+
+---
+
+## Scope Log
+
+- **Initial plan:** X BE issues + Y FE issues = Z total (Z points)
+- Issues may be added during implementation as edge cases and bugs surface.
+  When adding, use the same parent/labels/project/milestone structure.
 ```
 
-Use `mcp__claude_ai_Linear__update_document(id: <document UUID>)`.
+Use `mcp__plugin_linear_linear__update_document(id: <document UUID>)`.
 
 ---
 
@@ -375,3 +508,19 @@ Before finishing, verify each issue:
 - [ ] Are `data-pendo` attributes specified for all new interactive elements?
 - [ ] Is the Flagsmith flag name specified for gated features?
 - [ ] Do acceptance criteria match what the briefing document and Figma describe?
+- [ ] Are all sub-issues assigned to a milestone?
+- [ ] Do all sub-issues have appropriate labels (track + type + feature area)?
+
+---
+
+## Scope Growth
+
+**Scope growth is normal.** The initial slice is a starting point. During
+implementation, expect 15–30% growth as bugs surface, edge cases emerge, and
+designs evolve. When adding new issues mid-flight:
+
+- Create them under the same parent with the same labels, project, and milestone.
+- Set `estimate`, `priority`, and `state` = Backlog.
+- Update the dependency graph on the parent issue description.
+- If a ticket is superseded, archive it rather than deleting it.
+- Update the Scope Log in the briefing document.
