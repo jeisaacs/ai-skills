@@ -1,6 +1,6 @@
 # ai-skills
 
-![Skills](https://img.shields.io/badge/skills-8-blue)
+![Skills](https://img.shields.io/badge/skills-9-blue)
 ![Platform](https://img.shields.io/badge/platform-Claude%20Code%20%7C%20ChatGPT-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Contributions](https://img.shields.io/badge/contributions-welcome-orange)
@@ -20,6 +20,7 @@ A collection of AI coding assistant skills for Claude Code and ChatGPT custom in
 | [linear-project-slicer](./linear-project-slicer) | Creates vertically-sliced Linear sub-issues from a briefing document, producing fully-detailed issues an AI can pick up and implement. |
 | [pr-content](./pr-content) | Generates a paste-ready PR title and body from your branch diff with GitHub-flavored markdown and mermaid diagrams. Copies to clipboard automatically. |
 | [documentation-enforcer](./documentation-enforcer) | Reviews source files for documentation quality, generates unified diffs with suggested docstrings/comments, and produces a summary report without modifying files. |
+| [stakeholder-simulator](./stakeholder-simulator) | Simulates feedback from CTO, UX, Sales, Executive, and User Advocate perspectives to pressure-test PRDs and prepare for reviews. |
 | [uncodixfy](./uncodixfy) | Prevents generic AI/Codex UI patterns in frontend code. Enforces clean, human-designed aesthetics inspired by Linear, Raycast, Stripe, and GitHub. |
 
 ---
@@ -62,6 +63,7 @@ A collection of AI coding assistant skills for Claude Code and ChatGPT custom in
 | Skill | Author | Source |
 |-------|--------|--------|
 | terraform-wizard | [Anton Babenko](https://github.com/antonbabenko) | [terraform-skill](https://github.com/antonbabenko/terraform-skill) (Apache-2.0) |
+| stakeholder-simulator | [MySecond.ai](https://www.mysecond.ai) | [stakeholder-simulator](https://www.mysecond.ai/skills/stakeholder-simulator) |
 | uncodixfy | [cyxzdev](https://github.com/cyxzdev) | [Uncodixfy](https://github.com/cyxzdev/Uncodixfy) |
 | All other skills | [Jonathan Isaacs](https://github.com/jeisaacs) | This repo |
 
