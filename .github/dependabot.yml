@@ -9,3 +9,5 @@ updates:
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
+    assignees:
+      - "jeisaacs"
